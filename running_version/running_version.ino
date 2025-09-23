@@ -2,15 +2,19 @@
 
 /*
 
-Changes:
- 
+Implemented Changes:
   - Removed interval based updates
     - replaced with "when new data ready" updates
   - Set ISR as flag & moved reading packet to inside the loop
     - Why? There were risks with having SPI communincation inside an ISR
-    - 
-
-
+  - Added dynamic of baud rate to prevent having to flash new .HMI file everytime
+  - Added delays (3ms) after print statements 
+    - Why? Avoid disorder with repeated print statements (Dash doens't like this)
+    
+NEED TO ADD:
+  - Add code for LED lights 
+  - Update current usable sensors
+  - edit format of temp
 
 */
 
@@ -69,7 +73,6 @@ void loop() {
 
   if (canMessageReady) {
     canMessageReady = false; //reset
-
     while (CAN.checkReceive() == CAN_MSGAVAIL) {
       CANMessage msg;
       CAN.readMsgBuf(&msg.id, &msg.len, msg.buf);
@@ -83,26 +86,20 @@ void loop() {
 
   processCANMessages();
   //unsigned long currentMillis = millis();
-   
     sendRPM();
     if (gear != prevGear) {
       sendGear();
-      prevGear = gear;
-    }
+      prevGear = gear; }
     if ((coolInTemp != prevInTemp) || (coolOutTemp != prevOutTemp)){
       sendCoolantTemp();
       prevInTemp = coolInTemp;
-      prevOutTemp = coolOutTemp;
-    }
+      prevOutTemp = coolOutTemp; }
     if (batteryVoltage != prevBattery) {
       sendBattery();
-      prevBattery = batteryVoltage;
-    }
+      prevBattery = batteryVoltage; }
     if (fuelUsed != prevFuel) {
       sendFuel();
-      prevFuel = fuelUsed;
-    }
-    
+      prevFuel = fuelUsed; }
 }
 
 void canISR() {
@@ -177,18 +174,14 @@ void sendCoolantTemp() {
   }
 }
 void sendBattery() {
-  sendToNextion("batteryVoltage", String(batteryVoltage), false);
-}
+  sendToNextion("batteryVoltage", String(batteryVoltage), false); }
 void sendFuel() {
-  sendToNextion("c1", String(fuelUsed), false);
-}
+  sendToNextion("c1", String(fuelUsed), false); }
 void sendGear() {
   sendToNextion("gearP1", String(gear), true); delay(3);
-  sendToNextion("gearP2", String(gear), true);
-}
+  sendToNextion("gearP2", String(gear), true); }
 
 void sendToNextion(const String& objectName, const String& value, bool isNumeric) {
-
   Serial1.print(objectName + (isNumeric ? ".val=" : ".txt=\"") + value + (isNumeric ? "" : "\""));
   Serial1.write(0xFF); Serial1.write(0xFF); Serial1.write(0xFF);
 }
