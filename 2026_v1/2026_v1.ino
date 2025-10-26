@@ -46,6 +46,8 @@ unsigned int prevOutTemp = UNINT;
 unsigned int prevBattery = UNINT;
 unsigned int prevFuel = UNINT;
 
+unsigned int count = 0;
+
 
 void setup() {
   pinMode(CS_Pin, OUTPUT);
@@ -53,11 +55,11 @@ void setup() {
   
   Serial1.begin(9600); // default baud rate on dash
   delay(500);
-  Serial1.print("baud=921600"); // Tell dash to change to/accept new baud rate (w/o falshing new .HMI)
+  Serial1.print("baud=250000"); // 921600 - Tell dash to change to/accept new baud rate (w/o falshing new .HMI)
   Serial1.write(0xFF); Serial1.write(0xFF); Serial1.write(0xFF);
   delay(100);
   Serial1.end(); 
-  Serial1.begin(921600);  // update baud rate on Teensy
+  Serial1.begin(250000);  // update baud rate on Teensy
 
   if (CAN.begin(MCP_ANY, CAN_250KBPS, MCP_8MHZ) == CAN_OK) {
     attachInterrupt(digitalPinToInterrupt(INTRPT_Pin), canISR, FALLING);
@@ -71,8 +73,26 @@ void setup() {
 
 void loop() {
 
-  if (canMessageReady) {
-    canMessageReady = false; //reset
+  processCANMessages();
+  //unsigned long currentMillis = millis();
+    /*sendRPM();
+    if (gear != prevGear) {
+      sendGear();
+      prevGear = gear; }
+    if ((coolInTemp != prevInTemp) || (coolOutTemp != prevOutTemp)){
+      sendCoolantTemp();
+      prevInTemp = coolInTemp;
+      prevOutTemp = coolOutTemp; }
+      count = count + 1;
+    if (batteryVoltage != prevBattery) {
+      sendBattery();
+      prevBattery = batteryVoltage; }
+    if (fuelUsed != prevFuel) {
+      sendFuel();
+      prevFuel = fuelUsed; }*/
+}
+
+void canISR() {
     while (CAN.checkReceive() == CAN_MSGAVAIL) {
       CANMessage msg;
       CAN.readMsgBuf(&msg.id, &msg.len, msg.buf);
@@ -82,28 +102,6 @@ void loop() {
         bufferHead = nextHead;
       }
     }
-  }
-
-  processCANMessages();
-  //unsigned long currentMillis = millis();
-    sendRPM();
-    if (gear != prevGear) {
-      sendGear();
-      prevGear = gear; }
-    if ((coolInTemp != prevInTemp) || (coolOutTemp != prevOutTemp)){
-      sendCoolantTemp();
-      prevInTemp = coolInTemp;
-      prevOutTemp = coolOutTemp; }
-    if (batteryVoltage != prevBattery) {
-      sendBattery();
-      prevBattery = batteryVoltage; }
-    if (fuelUsed != prevFuel) {
-      sendFuel();
-      prevFuel = fuelUsed; }
-}
-
-void canISR() {
-  canMessageReady = true;
 }
 
 //-------------------SET VARIABLES FROM CAN PACKET-------------------------------------------
@@ -124,6 +122,10 @@ void handleCANMessage(CANMessage msg) {
     case 0x103:
       coolInTemp = extractFloatFromBuffer(msg.buf);
       coolOutTemp = extractFloatFromBuffer(msg.buf + 4);
+      count = count + 1;
+      Serial.println(count);
+      //Serial1.print(objectName + ".val=" + value);
+      //Serial1.write(0xFF); Serial1.write(0xFF); Serial1.write(0xFF);
       break;
     case 0x104:
       batteryVoltage = extractFloatFromBuffer(msg.buf);
@@ -154,34 +156,38 @@ void sendRPM() {
     rpm1 = 100;
     rpm2 = 100;
   }
-  sendToNextion("rpmP1", String(rpm), false); delay(3);
-  sendToNextion("rpmP2", String(rpm), false); delay(3);
-  sendToNextion("rpm1", String(rpm1), true); delay(3);
-  sendToNextion("rpm2", String(rpm2), true); delay(3); 
+  /*sendToNextion("rpmP1", rpm, false); 
+  sendToNextion("rpmP2", rpm, false); 
+  sendToNextion("rpm1", rpm1, true); 
+  sendToNextion("rpm2", rpm2, true); */
+
 }
 void sendCoolantTemp() {
-  sendToNextion("b3", coolInTemp, false); delay(3);
-  sendToNextion("b4", coolOutTemp, false); delay(3);
+  //sendToNextion("b3", coolInTemp, false); 
+  //sendToNextion("b4", coolOutTemp, false); 
   if (coolInTemp > 70.0 && coolInTemp < 90.0) {
-    sendToNextion("a2", "Heating Up", false);
-    Serial1.print("warning.aph=70"); Serial1.write(0xFF); Serial1.write(0xFF); Serial1.write(0xFF);
+    //sendToNextion("a2", "Heating Up", false);
+    //Serial1.print("warning.aph=70"); Serial1.write(0xFF); Serial1.write(0xFF); Serial1.write(0xFF);
   } else if (coolInTemp >= 90.0) {
-    sendToNextion("a2", "OVERHEATING", false);
-    Serial1.print("warning.aph=127"); Serial1.write(0xFF); Serial1.write(0xFF); Serial1.write(0xFF);
+   //sendToNextion("a2", "OVERHEATING", false);
+    //Serial1.print("warning.aph=127"); Serial1.write(0xFF); Serial1.write(0xFF); Serial1.write(0xFF);
   } else { 
-    sendToNextion("a2", "", false);
-    Serial1.print("warning.aph=0"); Serial1.write(0xFF); Serial1.write(0xFF); Serial1.write(0xFF);
+    //sendToNextion("a2", "", false);
+    //Serial1.print("warning.aph=0"); Serial1.write(0xFF); Serial1.write(0xFF); Serial1.write(0xFF);
   }
 }
 void sendBattery() {
-  sendToNextion("batteryVoltage", String(batteryVoltage), false); }
+  //sendToNextion("batteryVoltage", batteryVoltage, false); 
+  }
 void sendFuel() {
-  sendToNextion("c1", String(fuelUsed), false); }
+  //sendToNextion("c1", fuelUsed, false); 
+  }
 void sendGear() {
-  sendToNextion("gearP1", String(gear), true); delay(3);
-  sendToNextion("gearP2", String(gear), true); }
+  //sendToNextion("gearP1", gear, true); 
+  //sendToNextion("gearP2", gear, true); 
+  }
 
-void sendToNextion(const String& objectName, const String& value, bool isNumeric) {
-  Serial1.print(objectName + (isNumeric ? ".val=" : ".txt=\"") + value + (isNumeric ? "" : "\""));
+void sendToNextion(const String& objectName, const int& value) {
+  Serial1.print(objectName + ".val=" + value);
   Serial1.write(0xFF); Serial1.write(0xFF); Serial1.write(0xFF);
 }
