@@ -21,6 +21,9 @@ void setup() {
   while (!Serial && millis() < 4000);
   Serial.println("=== Full CAN Capture Counter ===");
 
+  enableCycleCounter();
+  Serial.println("Cycle counter enabled");
+
   Can1.begin();
   Can1.setBaudRate(250000);  // match ECU
   Can1.enableFIFO();
@@ -31,6 +34,8 @@ void setup() {
 }
 
 void loop() {
+  uint32_t start = getCycleCount();
+  //------------------------------------------------------------
   static uint32_t lastPrint = 0;
   uint32_t now = millis();
 
@@ -44,8 +49,23 @@ void loop() {
     Serial.println(count);
     lastPrint = now;
   }
+  //------------------------------------------------------------
+  uint32_t end = getCycleCount();
+  uint32_t cycles = end - start;
+  Serial.print("Cycles: ");
+  Serial.println(cycles);
 }
 
+// Enable and read the ARM cycle counter 
+static inline void enableCycleCounter() {
+  CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; // enable DWT access
+  DWT->CYCCNT = 0;                               // reset counter
+  DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;           // start counting
+}
+
+static inline uint32_t getCycleCount() {
+  return DWT->CYCCNT;
+}
 
 
 
