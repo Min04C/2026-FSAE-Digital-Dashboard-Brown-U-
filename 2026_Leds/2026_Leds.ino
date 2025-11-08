@@ -12,17 +12,17 @@ const int numled = 16;
 const int pin = 8;
 
 byte drawingMemory[numled*3];         //  3 bytes per LED for RGB
-DMAMEM byte displayMemory[numled*12]; // 12 bytes per LED for RGB
+DMAMEM byte displayMemory[numled*12]; // 12 
 
 WS2812Serial leds(numled, displayMemory, drawingMemory, pin, WS2812_RGB);
 
-//              RED          | GREEN      | BLUE  
-#define RED     ((255 << 16) | (0 << 8)   | 0)
+//              BLUE          | GREEN      | RED  
+#define RED     ((0 <<  16)   | (0 << 8)   | 255)
 #define GREEN   ((0 << 16)   | (255 << 8) | 0)
-#define BLUE    ((0 << 16)   | (0 << 8)   | 255)
-#define YELLOW  ((255 << 16) | (255 << 8) | 0)
+#define BLUE    ((255 << 16)   | (0 << 8)   | 0)
+#define YELLOW  ((0 << 16) | (255 << 8) | 255)
 #define PINK    ((255 << 16) | (0 << 8)   | 255)
-#define ORANGE  ((255 << 16) | (128 << 8) | 0)
+#define ORANGE  ((0 << 16) | (128 << 8) | 255)
 #define WHITE   ((255 << 16) | (255 << 8) | 255)
 #define OFF     0  // for loop 2
 
@@ -60,6 +60,44 @@ uint32_t rpmStates[15][16] = {
   {OFF, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, YELLOW, YELLOW, YELLOW, RED, RED, RED, RED, OFF},
   //{OFF, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, OFF}
 };
+/*uint32_t rpmStates[15][16] = {
+  // Range 0
+  {OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF},
+  // Range 1
+  {OFF, GREEN, GREEN, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF},
+  // Range 2
+  {OFF, GREEN, GREEN, GREEN, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF},
+  // Range 3
+  {OFF, GREEN, GREEN, GREEN, GREEN, GREEN, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF},
+  // Range 4
+  {OFF, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF},
+  // Range 5
+  {OFF, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, OFF, OFF, OFF, OFF, OFF, OFF, OFF},
+  // Range 6
+  {OFF, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, OFF, OFF, OFF, OFF, OFF, OFF},
+  // Range 7
+  {OFF, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, YELLOW, OFF, OFF, OFF, OFF},
+  // Range 8 (first yellow LED)
+  {OFF, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, YELLOW, YELLOW, OFF, OFF, OFF},
+  // Range 9
+  {OFF, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, YELLOW, YELLOW, YELLOW, YELLOW, OFF},
+  // Range 10
+  {OFF, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, ORANGE, ORANGE, ORANGE, ORANGE, OFF},
+  // Range 11 (first red LED)
+  {OFF, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, OFF},
+  // Range 12
+  {OFF, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, OFF},
+  // Range 13
+  {OFF, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, OFF},
+  // Range 14 (all LEDs filled except first and last)
+  {OFF, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, OFF},
+  //{OFF, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, OFF}
+};*/
+
+uint32_t ledState[16];
+bool LEDs_on = true;
+bool isRed = false;
+bool wasRed = false;
 
 
 void setup() {
@@ -84,8 +122,27 @@ void loop() {
   static int step = 1;
   //colorGYR(rpm); // 2. RPM INPUT - not smooth, deterministic 0-7g, 8-10y, 11-13.5r
   colorBrightnessBlend(rpm); // 2. RPM INPUT - brightness blend, deterministic 0-7g, 8-10y, 11-13.5r
+  leds.show();
+
+  static unsigned long lastFlash = 0;
+  if (isRed) {
+    if (millis() - lastFlash > 100) {
+      toggleFlash();
+      lastFlash = millis();
+    }
+  } else if (wasRed) {
+    LEDs_on = true;
+    for (int i = 0; i < numled; i++) {
+      leds.setPixel(i, ledState[i]);
+    }
+    leds.show();
+  }
+
+  wasRed = isRed;
+
   rpm += step;
   if (rpm >= 13500 || rpm <= 0) step = -step;
+
 
 }
 
@@ -136,46 +193,41 @@ void colorBrightnessBlend(int rpm) {
   int full = tr / 1000; // map 0-13500 to 0-14
   for (int i = 1; i < (numled - 1); i++) {       // FILL IN FULL LEDS (1000s)
     leds.setPixel(i, rpmStates[full][i]);
+    ledState[i] = rpmStates[full][i];
   }
   
   // FILL IN HALF LEDS (100s)
   int trfrac = tr % 1000;
   if (trfrac > 0) {
     int ledbrit = (full < 14) ? (trfrac * 255 / 1000) : (trfrac * 255 / 500);
-    if (full < 8) { // green          
-      leds.setPixel((full + 1), (0 << 16) | (ledbrit << 8) | 0);
+    uint32_t color;
+    if (full < 8) { // green
+      color = (0 << 16) | (ledbrit << 8) | 0;
+      isRed = false;
     } else if (full < 11) { // yellow
-      leds.setPixel((full + 1), (ledbrit << 16) | (ledbrit << 8) | 0);
+      color = (ledbrit << 16) | (ledbrit << 8) | 0;
+      isRed = false;
     } else { // red
-      leds.setPixel((full + 1), (ledbrit << 16) | (0 << 8) | 0);
+      color = (ledbrit << 16) | (0 << 8) | 0;
+      isRed = true;
     }
+    leds.setPixel((full + 1), color);
+    ledState[full + 1] = color;
   
-  }                             
+  }                          
   
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+void toggleFlash() {
+  LEDs_on = !LEDs_on;
+  for (int i = 0; i < 16; i += 1) {
+    if (LEDs_on) {
+      leds.setPixel(i, ledState[i]);
+    } else {
+      leds.setPixel(i, 0);
+    }
+  }
+  leds.show();
+}
 
 
