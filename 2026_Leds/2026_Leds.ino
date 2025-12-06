@@ -8,7 +8,7 @@
 
 // Uses pin 8 on Teensy with Serial2 communication
 
-const int numled = 16;
+const int numled = 8;
 const int pin = 8;
 
 byte drawingMemory[numled*3];         //  3 bytes per LED for RGB
@@ -27,7 +27,7 @@ WS2812Serial leds(numled, displayMemory, drawingMemory, pin, WS2812_RGB);
 #define OFF     0  // for loop 2
 
 // for loop 2
-uint32_t rpmStates[15][16] = {
+/*uint32_t rpmStates[15][16] = {
   // Range 0 
   {OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF},
   // Range 1
@@ -59,8 +59,8 @@ uint32_t rpmStates[15][16] = {
   // Range 14 (all LEDs filled except first and last)
   {OFF, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, GREEN, YELLOW, YELLOW, YELLOW, RED, RED, RED, RED, OFF},
   //{OFF, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, OFF}
-};
-/*uint32_t rpmStates[15][16] = {
+};*/
+uint32_t rpmStates[15][16] = {
   // Range 0
   {OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF},
   // Range 1
@@ -92,7 +92,7 @@ uint32_t rpmStates[15][16] = {
   // Range 14 (all LEDs filled except first and last)
   {OFF, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, OFF},
   //{OFF, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, RED, OFF}
-};*/
+};
 
 uint32_t ledState[16];
 bool LEDs_on = true;
@@ -102,10 +102,12 @@ bool wasRed = false;
 
 void setup() {
   leds.begin();
-  leds.setBrightness(150); // 0=off, 255=brightest
+  leds.setBrightness(35); // 0=off, 255=brightest
 }
 
 void loop() {
+  
+  
   
   // 1. change all the LEDs in 1.5 seconds (NO RPM)
   /*int microsec = 1500000 / leds.numPixels();
@@ -117,8 +119,13 @@ void loop() {
   colorWipe(ORANGE, microsec);
   colorWipe(WHITE, microsec);*/
 
+  for (int i=0; i < leds.numPixels(); i++) {
+    leds.setPixel(i, RED);     // update library's internal memory for led i
+    leds.show();                 // print to led i
+    delayMicroseconds(wait_us);  //
+  }
   
-  static int rpm = 0;
+  /*static int rpm = 0;
   static int step = 1;
   //colorGYR(rpm); // 2. RPM INPUT - not smooth, deterministic 0-7g, 8-10y, 11-13.5r
   colorBrightnessBlend(rpm); // 2. RPM INPUT - brightness blend, deterministic 0-7g, 8-10y, 11-13.5r
@@ -141,7 +148,7 @@ void loop() {
   wasRed = isRed;
 
   rpm += step;
-  if (rpm >= 13500 || rpm <= 0) step = -step;
+  if (rpm >= 13500 || rpm <= 0) step = -step;*/
 
 
 }

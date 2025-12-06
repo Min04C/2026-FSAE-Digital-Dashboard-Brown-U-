@@ -36,11 +36,15 @@ const unsigned long interval5000 = 5000;
 
 unsigned int rpm, rpm1, rpm2, rpm3dig, gear, coolInTemp, coolOutTemp, batteryVoltage, fuelUsed;
 
+unsigned long lastPrintTime = 0;
+unsigned long count = 0;
+
 
 void setup() {
   pinMode(CS_Pin, OUTPUT);
   pinMode(INTRPT_Pin, INPUT);
   Serial1.begin(9600);
+  Serial.begin(9600);
 
   if (CAN.begin(MCP_ANY, CAN_250KBPS, MCP_8MHZ) == CAN_OK) {
     attachInterrupt(digitalPinToInterrupt(INTRPT_Pin), canISR, FALLING);
@@ -51,22 +55,21 @@ void setup() {
   CAN.setMode(MCP_NORMAL);
   delay(1000);
 
-  sendToNextion("B2", "fuelUsed", false);
+  /*sendToNextion("B2", "fuelUsed", false);
   sendToNextion("B3", "CoolIn (C)", false);
   sendToNextion("B4", "CoolOut (C)", false);
   sendToNextion("C1", "", false);
   sendToNextion("C2", "", false);
   sendToNextion("C3", "", false);
-  sendToNextion("C4", "", false);
-
+  sendToNextion("C4", "", false);*/
 
 }
 
 void loop() {
 
   processCANMessages();
-  unsigned long currentMillis = millis();
-  if (currentMillis - last500Update >= interval500) { // 500 - RPM, gear
+  //unsigned long currentMillis = millis();
+  /*if (currentMillis - last500Update >= interval500) { // 500 - RPM, gear
     sendRPM();
     sendGear();
     last500Update = currentMillis;
@@ -79,13 +82,37 @@ void loop() {
     sendBattery();
     sendFuel();
     last5000Update = currentMillis;
+  }*/
+
+  unsigned long now = millis();
+  if (now - lastPrintTime >= 1000) {
+    noInterrupts(); // prevent change while reading
+    Serial.println(count);
+    count = 0;
+
+    interrupts();
+    lastPrintTime = now;
   }
+
 }
+
+
+
+
+
+
+
+
+
 
 void canISR() {
     while (CAN.checkReceive() == CAN_MSGAVAIL) {
       CANMessage msg;
       CAN.readMsgBuf(&msg.id, &msg.len, msg.buf);
+
+      count = count + 1;
+      String m = String(msg.id);
+
       int nextHead = (bufferHead + 1) % BUFFER_SIZE;
       if (nextHead != bufferTail) {
         canBuffer[bufferHead] = msg;

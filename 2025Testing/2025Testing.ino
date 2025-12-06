@@ -44,6 +44,11 @@ unsigned long lastPrintTime = 0;
 volatile unsigned long count_102 = 0;
 volatile unsigned long count_103 = 0;
 volatile unsigned long count_104 = 0;
+volatile unsigned long count_105 = 0;
+volatile unsigned long count_106 = 0;
+volatile unsigned long count_648 = 0;
+volatile unsigned long count_700 = 0;
+volatile unsigned long count_701 = 0;
 
 volatile unsigned long droppedMessages = 0;
 unsigned long dMessages = 0;
@@ -90,17 +95,10 @@ void loop() {
   unsigned long now = millis();
   if (now - lastPrintTime >= 1000) {
     noInterrupts(); // prevent change while reading
-    unsigned long packetsPerSecond = count;
-    count = 0;
+    //unsigned long packetsPerSecond = count;
+    //count = 0;
     unsigned long packsPerSecond = counttt;
     counttt = 0;
-
-    unsigned long c102 = count_102;
-    unsigned long c103 = count_103;
-    unsigned long c104 = count_104;
-    count_102 = 0;
-    count_103 = 0;
-    count_104 = 0;
 
     dMessages = droppedMessages;
     droppedMessages = 0;
@@ -108,21 +106,40 @@ void loop() {
 
     interrupts();
 
+    Serial.println("-");
     Serial.print("CAN Packets receieved per second: ");
     Serial.println(packsPerSecond);
-    Serial.print("CAN Packets buffered per second: ");
-    Serial.println(packetsPerSecond);
+    //Serial.print("CAN Packets buffered per second: ");
+    //Serial.println(packetsPerSecond);
     Serial.print("0x102 packets/sec: ");
-    Serial.println(c102);
+    Serial.println(count_102);
     Serial.print("0x103 packets/sec: ");
-    Serial.println(c103);
+    Serial.println(count_103);
     Serial.print("0x104 packets/sec: ");
-    Serial.println(c104);
-    Serial.print("Dropped messages per second: ");
-    Serial.println(dMessages);
+    Serial.println(count_104);
+    Serial.print("0x105 packets/sec: ");
+    Serial.println(count_105);
+    Serial.print("0x106 packets/sec: ");
+    Serial.println(count_106);
+    Serial.print("0x648 packets/sec: ");
+    Serial.println(count_648);
+    Serial.print("0x700 packets/sec: ");
+    Serial.println(count_700);
+    Serial.print("0x701 packets/sec: ");
+    Serial.println(count_701);
+    //Serial.print("Dropped messages per second: ");
+    //Serial.println(dMessages);
 
     Serial.println("-");
 
+    count_102 = 0;
+    count_103 = 0;
+    count_104 = 0;
+    count_105 = 0;
+    count_106 = 0;
+    count_648 = 0;
+    count_700 = 0;
+    count_701 = 0;
 
     lastPrintTime = now;
   }
@@ -133,16 +150,57 @@ void canISR() {
     while (CAN.checkReceive() == CAN_MSGAVAIL) {
       CANMessage msg;
       CAN.readMsgBuf(&msg.id, &msg.len, msg.buf);
+      //Serial.print("--ID: 0x");
+      //Serial.print(msg.id, HEX);
       int nextHead = (bufferHead + 1) % BUFFER_SIZE;
       if (nextHead != bufferTail) {
         canBuffer[bufferHead] = msg;
         bufferHead = nextHead;
       } else {
-        droppedMessages++;
+        //droppedMessages++;
       }
-      count++;
+      //count++;
+
+      switch (msg.id) {
+    case 0x102:
+      count_102++;
+
+      break;
+    case 0x103:
+      count_103++;
+
+      break;
+    case 0x104:
+    
+      count_104++;
+
+      break;
+    case 0x105:
+      count_105++;
+      break;
+    case 0x106:
+      count_106++;
+      break;
+    case 0x648:
+      count_648++;
+      break;  
+    case 0x700:
+      count_700++;
+      break;
+    case 0x701:
+      count_701++;
+      //Serial.print("0x701 data: ");
+      //for (int i = 0; i < msg.len; i++) {
+      //  Serial.print(msg.buf[i], HEX);
+      ///  Serial.print(" ");
+      //}
+      //Serial.println();
+      break; }
     }
-    counttt++; //test this to see calls to ISR without time-intesive code
+    counttt++;
+    
+    
+     //test this to see calls to ISR without time-intesive code
 
 }
 
@@ -156,10 +214,13 @@ void processCANMessages() {
 }
 
 void handleCANMessage(CANMessage msg) {
-  Serial.print("--ID: 0x");
-  Serial.print(msg.id, HEX);
-
-  switch (msg.id) {
+  //Serial.print("--ID: 0x");
+  //Serial.print(msg.id, HEX);
+  //if (msg.id == 0x700 || msg.id == 0x701) {
+  //return; // ignore diagnostic chatter
+  //}
+  //counttt++;
+  /*switch (msg.id) {
     case 0x102:
       rpm = extractFloatFromBuffer(msg.buf) / 6;
       gear = msg.buf[7];
@@ -178,7 +239,29 @@ void handleCANMessage(CANMessage msg) {
       count_104++;
 
       break;
-  }
+    case 0x105:
+      count_105++;
+      break;
+    case 0x106:
+      count_106++;
+      break;
+    case 0x648:
+      count_648++;
+      break;  
+    case 0x700:
+      count_700++;
+      break;
+    case 0x701:
+      count_701++;
+      //Serial.print("0x701 data: ");
+      //for (int i = 0; i < msg.len; i++) {
+      //  Serial.print(msg.buf[i], HEX);
+      ///  Serial.print(" ");
+      //}
+      //Serial.println();
+      break;*/
+
+  //}
 }
 
 float extractFloatFromBuffer(unsigned char* buf) {
